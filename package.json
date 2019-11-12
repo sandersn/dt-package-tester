@@ -20,5 +20,12 @@
   "bugs": {
     "url": "https://github.com/sandersn/dt-package-tester/issues"
   },
-  "homepage": "https://github.com/sandersn/dt-package-tester#readme"
+  "homepage": "https://github.com/sandersn/dt-package-tester#readme",
+  "dependencies": {
+    "@types/shelljs": "^0.8.6",
+    "shelljs": "^0.8.3"
+  },
+  "devDependencies": {
+    "typescript": "^3.8.0-dev.20191112"
+  }
 }
