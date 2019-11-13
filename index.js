@@ -4,9 +4,9 @@ const assert = require('assert')
 const fs = require('fs')
 /**
  * @param {string} directory
- * @param {object} strictness
+ * @param {object} options
  */
-function createConfig(directory, strictness) {
+function createConfig(directory, options) {
     fs.writeFileSync('package.json', `
 {
   "name": "dt-package-tester-${directory}",
@@ -33,31 +33,26 @@ function createConfig(directory, strictness) {
   "homepage": "https://github.com/sandersn/dt-package-tester#readme"
 }
 `)
-    if (strictness.strict) {
-        strictness.noImplicitAny = true
-        strictness.noImplicitThis = true
-        strictness.strictNullChecks = true
-        strictness.strictFunctionTypes = true
+    if (options.strict) {
+        options.noImplicitAny = true
+        options.noImplicitThis = true
+        options.strictNullChecks = true
+        options.strictFunctionTypes = true
     }
-    assert.notStrictEqual(undefined, strictness.noImplicitAny)
-    assert.notStrictEqual(undefined, strictness.noImplicitThis)
-    assert.notStrictEqual(undefined, strictness.strictNullChecks)
-    assert.notStrictEqual(undefined, strictness.strictFunctionTypes)
+    assert.notStrictEqual(undefined, options.noImplicitAny)
+    assert.notStrictEqual(undefined, options.noImplicitThis)
+    assert.notStrictEqual(undefined, options.strictNullChecks)
+    assert.notStrictEqual(undefined, options.strictFunctionTypes)
 
     // TODO: lib might vary per-project and need to be copied?
     fs.writeFileSync('tsconfig.json', JSON.stringify({
     "compilerOptions": {
         "module": "commonjs",
-        "lib": [
-            "es5",
-            "dom",
-            "es2015.iterable",
-            "es2015.promise"
-        ],
-        "noImplicitAny": strictness.noImplicitAny,
-        "noImplicitThis": strictness.noImplicitThis,
-        "strictNullChecks": strictness.strictNullChecks,
-        "strictFunctionTypes": strictness.strictFunctionTypes,
+        lib: options.lib,
+        "noImplicitAny": options.noImplicitAny,
+        "noImplicitThis": options.noImplicitThis,
+        "strictNullChecks": options.strictNullChecks,
+        "strictFunctionTypes": options.strictFunctionTypes,
         "types": [],
         "noEmit": true,
         "forceConsistentCasingInFileNames": true
@@ -71,10 +66,12 @@ sh.cd('mirror')
 const isTestFile = /.+DefinitelyTyped\/types\/([^/]+)\/(.+\.ts)$/
 const isTypeReference = /<reference types="([^"]+)" *\/>/g
 for (const d of sh.ls("~/DefinitelyTyped/types")) {
-    if (d < 'activex-adodb') continue
+    if (d < 'activex-mshtml') continue
     sh.mkdir(d)
     sh.cd(d)
     const sourceTsconfig = JSON.parse(fs.readFileSync(`/home/nathansa/DefinitelyTyped/types/${d}/tsconfig.json`, 'utf8'))
+    assert.notStrictEqual(undefined, sourceTsconfig.compilerOptions)
+    assert.notStrictEqual(undefined, sourceTsconfig.compilerOptions.lib)
     createConfig(d, sourceTsconfig.compilerOptions)
     sh.exec(`npm install @types/${d}`)
     for (const f of sh.find(`~/DefinitelyTyped/types/${d}`)) {
