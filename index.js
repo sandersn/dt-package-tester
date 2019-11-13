@@ -99,6 +99,12 @@ for (const d of sh.ls("~/DefinitelyTyped/types")) {
         }
     }
     const result = sh.exec('tsc --diagnostics')
-    if (result.code !== 0) process.exit(result.code)
+    if (result.code !== 0) {
+        const expected = sh.grep('\\$ExpectError', sh.find('**/*.ts')).split('\n').length - 1
+        const actual = Array.from(result.stdout.matchAll(/error TS/g)).length
+        console.log(`${expected} $ExpectErrors; errors from tsc: ${actual}`)
+        if (expected !== actual)
+            process.exit(actual)
+    }
     sh.cd('..')
 }
