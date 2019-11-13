@@ -69,8 +69,9 @@ function createConfig(directory, strictness) {
 sh.mkdir('mirror')
 sh.cd('mirror')
 const isTestFile = /.+DefinitelyTyped\/types\/([^/]+)\/(.+\.ts)$/
-const isTypeReference = /<reference types="([^"]+)"\/>/g
+const isTypeReference = /<reference types="([^"]+)" *\/>/g
 for (const d of sh.ls("~/DefinitelyTyped/types")) {
+    if (d < 'activex-adodb') continue
     sh.mkdir(d)
     sh.cd(d)
     const sourceTsconfig = JSON.parse(fs.readFileSync(`/home/nathansa/DefinitelyTyped/types/${d}/tsconfig.json`, 'utf8'))
@@ -98,7 +99,7 @@ for (const d of sh.ls("~/DefinitelyTyped/types")) {
             sh.mkdir('-p', path.dirname(target))
         }
     }
-    const result = sh.exec('tsc --diagnostics')
+    const result = sh.exec('tsc')
     if (result.code !== 0) {
         const expected = sh.grep('\\$ExpectError', sh.find('**/*.ts')).split('\n').length - 1
         const actual = Array.from(result.stdout.matchAll(/error TS/g)).length
