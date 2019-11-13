@@ -2,7 +2,11 @@ const sh = require('shelljs')
 const path = require('path')
 const assert = require('assert')
 const fs = require('fs')
-function createConfig(directory) {
+/**
+ * @param {string} directory
+ * @param {object} strictness
+ */
+function createConfig(directory, strictness) {
     fs.writeFileSync('package.json', `
 {
   "name": "dt-package-tester-${directory}",
@@ -29,8 +33,19 @@ function createConfig(directory) {
   "homepage": "https://github.com/sandersn/dt-package-tester#readme"
 }
 `)
+    if (strictness.strict) {
+        strictness.noImplicitAny = true
+        strictness.noImplicitThis = true
+        strictness.strictNullChecks = true
+        strictness.strictFunctionTypes = true
+    }
+    assert.notStrictEqual(undefined, strictness.noImplicitAny)
+    assert.notStrictEqual(undefined, strictness.noImplicitThis)
+    assert.notStrictEqual(undefined, strictness.strictNullChecks)
+    assert.notStrictEqual(undefined, strictness.strictFunctionTypes)
+
     // TODO: lib might vary per-project and need to be copied?
-    fs.writeFileSync('tsconfig.json', `{
+    fs.writeFileSync('tsconfig.json', JSON.stringify({
     "compilerOptions": {
         "module": "commonjs",
         "lib": [
@@ -39,16 +54,16 @@ function createConfig(directory) {
             "es2015.iterable",
             "es2015.promise"
         ],
-        "noImplicitAny": true,
-        "noImplicitThis": true,
-        "strictNullChecks": true,
-        "strictFunctionTypes": true,
+        "noImplicitAny": strictness.noImplicitAny,
+        "noImplicitThis": strictness.noImplicitThis,
+        "strictNullChecks": strictness.strictNullChecks,
+        "strictFunctionTypes": strictness.strictFunctionTypes,
         "types": [],
         "noEmit": true,
         "forceConsistentCasingInFileNames": true
     }
 }
-`)
+))
 }
 
 sh.mkdir('mirror')
@@ -56,10 +71,10 @@ sh.cd('mirror')
 const isTestFile = /.+DefinitelyTyped\/types\/([^/]+)\/(.+\.ts)$/
 const isTypeReference = /<reference types="([^"]+)"\/>/g
 for (const d of sh.ls("~/DefinitelyTyped/types")) {
-    // if (d !== 'ace') continue
     sh.mkdir(d)
     sh.cd(d)
-    createConfig(d)
+    const sourceTsconfig = JSON.parse(fs.readFileSync(`/home/nathansa/DefinitelyTyped/types/${d}/tsconfig.json`, 'utf8'))
+    createConfig(d, sourceTsconfig.compilerOptions)
     sh.exec(`npm install @types/${d}`)
     for (const f of sh.find(`~/DefinitelyTyped/types/${d}`)) {
         const testFileMatch = f.match(isTestFile)
@@ -74,7 +89,7 @@ for (const d of sh.ls("~/DefinitelyTyped/types")) {
             }
             if (testFile.indexOf('import') === -1) {
                 // add global reference to index.d.ts if no imports
-                fs.writeFileSync(target, `/// <reference path="node_modules/@types/${d}/index.d.ts"/>
+                fs.writeFileSync(target, `/// <reference path="${process.cwd()}/node_modules/@types/${d}/index.d.ts"/>
 ` + testFile)
             }
             else {
