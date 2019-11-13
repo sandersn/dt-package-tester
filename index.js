@@ -67,6 +67,7 @@ sh.cd('mirror')
 const isTestFile = /.+DefinitelyTyped\/types\/([^/]+)\/(.+\.ts)$/
 const isTypeReference = /<reference types="([^"]+)" *\/>/g
 for (const d of sh.ls("~/DefinitelyTyped/types")) {
+    if (d < 'activex-scripting') continue
     sh.mkdir(d)
     sh.cd(d)
     const sourceTsconfig = JSON.parse(fs.readFileSync(`/home/nathansa/DefinitelyTyped/types/${d}/tsconfig.json`, 'utf8'))
@@ -96,15 +97,20 @@ for (const d of sh.ls("~/DefinitelyTyped/types")) {
             }
         }
     }
-    const result = sh.exec('tsc')
-    if (result.code !== 0) {
-        const expected = sh.grep('\\$ExpectError', sh.find('**/*.ts')).split('\n').length - 1
-        const actual = Array.from(result.stdout.matchAll(/error TS/g)).length
-        console.log(`${expected} $ExpectErrors; errors from tsc: ${actual}`)
-        if (d === 'adone' && expected + 2 === actual) // adone has errors as shipped
-            continue
-        else if (expected !== actual)
-            process.exit(actual)
+    const result = sh.exec('node ~/ts/built/local/tsc.js')
+    // adone has errors as shipped
+    if (result.code !== 0 && d !== 'adone') {
+        const errors = result.stdout.matchAll(/(\S+\.ts)\((\d+),(\d+)\): error TS/g)
+        for (const err of errors) {
+            const filename = err[1]
+            const line = +err[2]
+            const offset = +err[3]
+            const lines = fs.readFileSync(filename, 'utf8').split('\n')
+            if (lines[line].indexOf('$ExpectError') === -1 && lines[line - 1].indexOf('$ExpectError') === -1) {
+                console.log(`Did not find $ExpectError for ${filename}(${line},${offset})`)
+                process.exit(1)
+            }
+        }
     }
     sh.cd('..')
 }
