@@ -45,24 +45,24 @@ function createConfig(directory, options) {
     assert.notStrictEqual(undefined, options.strictFunctionTypes)
 
     fs.writeFileSync('tsconfig.json', JSON.stringify({
-    "compilerOptions": {
-        "target": options.target,
-        "module": "commonjs",
-        lib: options.lib,
-        jsx: options.jsx,
-        "noImplicitAny": options.noImplicitAny,
-        "noImplicitThis": options.noImplicitThis,
-        "strictNullChecks": options.strictNullChecks,
-        "strictFunctionTypes": options.strictFunctionTypes,
-        "experimentalDecorators": options.experimentalDecorators,
-        "esModuleInterop": options.esModuleInterop,
-        "allowSyntheticDefaultImports": options.allowSyntheticDefaultImports,
-        "types": [],
-        "noEmit": true,
-        "forceConsistentCasingInFileNames": true
-    }
-}
-))
+        "compilerOptions": {
+            "target": options.target,
+            "module": "commonjs",
+            lib: options.lib,
+            jsx: options.jsx,
+            "noImplicitAny": options.noImplicitAny,
+            "noImplicitThis": options.noImplicitThis,
+            "strictNullChecks": options.strictNullChecks,
+            "strictFunctionTypes": options.strictFunctionTypes,
+            "experimentalDecorators": options.experimentalDecorators,
+            "esModuleInterop": options.esModuleInterop,
+            "allowSyntheticDefaultImports": options.allowSyntheticDefaultImports,
+            "types": [],
+            "noEmit": true,
+            "forceConsistentCasingInFileNames": true
+        },
+        exclude: ["v1","v2","v3","v4","v5","v6","v7","v8","v9","v1*","ts3*"]
+    }))
 }
 
 const isTestFile = /.+DefinitelyTyped\/types\/([^/]+)\/(.+\.tsx?)$/
@@ -107,12 +107,14 @@ function installDependencies(dir) {
 sh.mkdir('mirror')
 sh.cd('mirror')
 const skiplist = [
-    'adone', // weird inter-file UMD references, need to investigate
+    'adone', // inter-file UMD references fail, need to investigate
     'ansi-styles', // local reference to .d.ts file in test, should be disallowed by linter (but it's unused, so skip for our purposes)
     'ansicolors', // no tests!!!!!!!
+    'aos', // global file in DT compilation isn't there in a real one (probably same as adone)
+    // need a lint rule that says if index.d.ts is a module then index.d.ts must be the ONLY d.ts in "files" in tsconfig
 ]
 for (const dir of sh.ls("~/DefinitelyTyped/types")) {
-    // if (dir < 'ansicolors') continue
+    if (dir < 'arcgis-js-api') continue
     console.log(`==================================================== ${dir} ================================`)
     sh.mkdir(dir)
     sh.cd(dir)
@@ -133,6 +135,7 @@ for (const dir of sh.ls("~/DefinitelyTyped/types")) {
                 console.log(`    Did not find $ExpectError for ${filename}(${line},${offset}):`)
                 console.log(lines[line - 2])
                 console.log(lines[line - 1])
+                sh.exec('play -q ~/Music/ogg/Undertale/mus_wawa.ogg -t alsa gain -13 trim 0 2.6 &')
                 process.exit(1)
             }
         }
