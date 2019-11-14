@@ -86,12 +86,14 @@ function installDependencies(d) {
                 ...testFile.matchAll(isTypeReference),
                 ...testFile.matchAll(isESImport),
                 ...testFile.matchAll(isImportRequire),
-            ]
-            for (const i of imports.map(match => match[1]).filter(name => name !== d && sh.test('-d', `~/DefinitelyTyped/types/${name}`))) {
+            ].map(match => match[1])
+            console.log(f, imports)
+            for (const i of imports.filter(name => sh.test('-d', `~/DefinitelyTyped/types/${name}`) && name.indexOf('/') === -1)) {
                 sh.exec(`npm install @types/${i}`)
             }
             sh.mkdir('-p', path.dirname(target))
-            if (imports.length === 0) {
+            if (imports.indexOf(d) === -1) {
+                sh.exec(`npm install @types/${d}`)
                 fs.writeFileSync(target, `/// <reference types="${d}"/>
 ` + testFile)
             }
@@ -105,7 +107,8 @@ function installDependencies(d) {
 sh.mkdir('mirror')
 sh.cd('mirror')
 for (const d of sh.ls("~/DefinitelyTyped/types")) {
-    if (d < 'angular') continue
+    if (d < 'acl') continue
+    // if (d < 'angular-es') continue
     console.log(`==================================================== ${d} ================================`)
     sh.mkdir(d)
     sh.cd(d)
@@ -113,7 +116,6 @@ for (const d of sh.ls("~/DefinitelyTyped/types")) {
     assert.notStrictEqual(undefined, sourceTsconfig.compilerOptions)
     assert.notStrictEqual(undefined, sourceTsconfig.compilerOptions.lib)
     createConfig(d, sourceTsconfig.compilerOptions)
-    sh.exec(`npm install @types/${d}`)
     sh.find(`~/DefinitelyTyped/types/${d}`).forEach(installDependencies(d))
     const result = sh.exec('node ~/ts/built/local/tsc.js')
     // adone has errors as shipped
