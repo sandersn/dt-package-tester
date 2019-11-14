@@ -70,35 +70,35 @@ const isTypeReference = /<reference types="([^"]+)" *\/>/g
 const isESImport = /import.+from ['"]([^'"]+?)['"]/g
 const isImportRequire =  /import.+ = require\(['"]([^"]+?)['"]\)/g
 /**
- * @param {string} d
+ * @param {string} dir
  * @returns {(f: string) => void}
  */
-function installDependencies(d) {
-    return f => {
-        const testFileMatch = f.match(isTestFile)
-        if (testFileMatch && !f.endsWith('.d.ts')) {
-            assert.equal(testFileMatch[1], d)
+function installDependencies(dir) {
+    return file => {
+        const testFileMatch = file.match(isTestFile)
+        if (testFileMatch && !file.endsWith('.d.ts')) {
+            assert.equal(testFileMatch[1], dir)
             const target = testFileMatch[2]
 
-            const testFile = fs.readFileSync(f, 'utf8')
+            const testFile = fs.readFileSync(file, 'utf8')
             // read each file and look for `<reference types='...'/>`, `import = require` and `import ... from`, then `npm install @types/${...}`
             const imports = [
                 ...testFile.matchAll(isTypeReference),
                 ...testFile.matchAll(isESImport),
                 ...testFile.matchAll(isImportRequire),
             ].map(match => match[1])
-            console.log(f, imports)
-            for (const i of imports.filter(name => sh.test('-d', `~/DefinitelyTyped/types/${name}`) && name.indexOf('/') === -1)) {
+            console.log(file, imports)
+            for (const i of imports.filter(name => sh.test('-d', `~/DefinitelyTyped/types/${name}`) && name.indexOf('/') > 1)) {
                 sh.exec(`npm install @types/${i}`)
             }
             sh.mkdir('-p', path.dirname(target))
-            if (imports.indexOf(d) === -1) {
-                sh.exec(`npm install @types/${d}`)
-                fs.writeFileSync(target, `/// <reference types="${d}"/>
+            if (imports.indexOf(dir) === -1) {
+                sh.exec(`npm install @types/${dir}`)
+                fs.writeFileSync(target, `/// <reference types="${dir}"/>
 ` + testFile)
             }
             else {
-                sh.cp('-u', f, target)
+                sh.cp('-u', file, target)
             }
         }
     }
@@ -106,20 +106,24 @@ function installDependencies(d) {
 
 sh.mkdir('mirror')
 sh.cd('mirror')
-for (const d of sh.ls("~/DefinitelyTyped/types")) {
-    if (d < 'acl') continue
-    // if (d < 'angular-es') continue
-    console.log(`==================================================== ${d} ================================`)
-    sh.mkdir(d)
-    sh.cd(d)
-    const sourceTsconfig = JSON.parse(fs.readFileSync(`/home/nathansa/DefinitelyTyped/types/${d}/tsconfig.json`, 'utf8'))
+const skiplist = [
+    'adone',
+    'ansi-styles'
+]
+for (const dir of sh.ls("~/DefinitelyTyped/types")) {
+    // if (dir < 'ansicolors') continue
+    console.log(`==================================================== ${dir} ================================`)
+    sh.mkdir(dir)
+    sh.cd(dir)
+    const sourceTsconfig = JSON.parse(fs.readFileSync(`/home/nathansa/DefinitelyTyped/types/${dir}/tsconfig.json`, 'utf8'))
     assert.notStrictEqual(undefined, sourceTsconfig.compilerOptions)
     assert.notStrictEqual(undefined, sourceTsconfig.compilerOptions.lib)
-    createConfig(d, sourceTsconfig.compilerOptions)
-    sh.find(`~/DefinitelyTyped/types/${d}`).forEach(installDependencies(d))
+    createConfig(dir, sourceTsconfig.compilerOptions)
+    sh.find(`~/DefinitelyTyped/types/${dir}`).forEach(installDependencies(dir))
     const result = sh.exec('node ~/ts/built/local/tsc.js')
-    // adone has errors as shipped
-    if (result.code !== 0 && d !== 'adone') {
+    // adone: weird inter-file UMD references, need to investigate
+    // ansi-styles: local reference to .d.ts file in test, should be disallowed by linter (but it's unused, so skip for our purposes)
+    if (result.code !== 0 && skiplist.indexOf(dir) === -1) {
         const errors = result.stdout.matchAll(/(\S+\.ts)\((\d+),(\d+)\): error TS/g)
         for (const err of errors) {
             const filename = err[1]
