@@ -61,14 +61,14 @@ function createConfig(directory, options) {
             "noEmit": true,
             "forceConsistentCasingInFileNames": true
         },
-        exclude: ["v1","v2","v3","v4","v5","v6","v7","v8","v9","v1*","ts3*"]
+        exclude: ["v0", "v1","v2","v3","v4","v5","v6","v7","v8","v9","v1*","ts3*"]
     }))
 }
 
 const isTestFile = /.+DefinitelyTyped\/types\/([^/]+)\/(.+\.tsx?)$/
-const isTypeReference = /<reference types="([^"]+)" *\/>/g
-const isESImport = /import[^'"]+?['"]([^'"]+?)['"]/g
-const isImportRequire =  /import.+ = require\(['"]([^"]+?)['"]\)/g
+const isTypeReference = /\/\/\/ *<reference types="([^"]+)" *\/>/g
+const isESImport = /(?:^|\n)import[^'"]+?['"]([^'"]+?)['"]/g
+const isImportRequire =  /(?:^|\n)import.+ = require\(['"]([^"]+?)['"]\)/g
 /**
  * @param {string} dir
  * @returns {(f: string) => void}
@@ -95,7 +95,7 @@ function installDependencies(dir) {
             if (imports.indexOf(dir) === -1) {
                 sh.exec(`npm install @types/${dir}`)
                 fs.writeFileSync(target, `/// <reference types="${dir}"/>
-` + testFile)
+` + testFile.replace(/["']\.\.["']/g, '"' + dir + '"'))
             }
             else {
                 sh.cp('-u', file, target)
@@ -104,7 +104,9 @@ function installDependencies(dir) {
     }
 }
 
-/** @param {string} name */
+/**
+ * @param {string} name
+ */
 function mangleScopes(name) {
     return name[0] === '@' ? name.slice(1).replace('/', '__') : name
 }
@@ -114,14 +116,18 @@ sh.cd('mirror')
 const skiplist = [
     'adone', // inter-file UMD references fail, need to investigate
     'ansi-styles', // local reference to .d.ts file in test, should be disallowed by linter (but it's unused, so skip for our purposes)
-    'ansicolors', // no tests!!!!!!!
+    'ansicolors', // no tests!!!!!!! (and angular-cookies)
     'aos', // global file in DT compilation isn't there in a real one (probably same as adone)
     // need a lint rule that says if index.d.ts is a module then index.d.ts must be the ONLY d.ts in "files" in tsconfig
     'auth0.widget', // depends on <reference types="auth0-js/v7" />, which needs to be rewritten to <reference types="auth0-js" /> to work
     // not sure what the general solution is, but types="xxx/vN" should not be allowed
+    // babel__template uses relative paths in tests to refer to its package, this should be disallowed too
+    'chromecast-caf-sender', // we miss a dependency on @types/chrome that should arise from <reference types="chrome/chrome-cast" /> in types-publisher
+    'cldrjs', // same: reference to globals defined in a file outside index.d.ts.
+    'clearbladejs-client', // same
 ]
 for (const dir of sh.ls("~/DefinitelyTyped/types")) {
-    if (dir < 'babel__template') continue
+    if (dir < 'clearbladejs-client') continue
     console.log(`==================================================== ${dir} ================================`)
     sh.mkdir(dir)
     sh.cd(dir)
