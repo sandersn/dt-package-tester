@@ -88,7 +88,7 @@ function installDependencies(dir) {
                 ...testFile.matchAll(isImportRequire),
             ].map(match => match[1])
             console.log(file, imports)
-            for (const i of imports.filter(name => sh.test('-d', `~/DefinitelyTyped/types/${name}`) && name.indexOf('/') > 1)) {
+            for (const i of imports.filter(name => sh.test('-d', `~/DefinitelyTyped/types/${name}`) && name.indexOf('/') < 2)) {
                 sh.exec(`npm install @types/${i}`)
             }
             sh.mkdir('-p', path.dirname(target))
@@ -107,8 +107,9 @@ function installDependencies(dir) {
 sh.mkdir('mirror')
 sh.cd('mirror')
 const skiplist = [
-    'adone',
-    'ansi-styles'
+    'adone', // weird inter-file UMD references, need to investigate
+    'ansi-styles', // local reference to .d.ts file in test, should be disallowed by linter (but it's unused, so skip for our purposes)
+    'ansicolors', // no tests!!!!!!!
 ]
 for (const dir of sh.ls("~/DefinitelyTyped/types")) {
     // if (dir < 'ansicolors') continue
@@ -121,8 +122,6 @@ for (const dir of sh.ls("~/DefinitelyTyped/types")) {
     createConfig(dir, sourceTsconfig.compilerOptions)
     sh.find(`~/DefinitelyTyped/types/${dir}`).forEach(installDependencies(dir))
     const result = sh.exec('node ~/ts/built/local/tsc.js')
-    // adone: weird inter-file UMD references, need to investigate
-    // ansi-styles: local reference to .d.ts file in test, should be disallowed by linter (but it's unused, so skip for our purposes)
     if (result.code !== 0 && skiplist.indexOf(dir) === -1) {
         const errors = result.stdout.matchAll(/(\S+\.ts)\((\d+),(\d+)\): error TS/g)
         for (const err of errors) {
