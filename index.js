@@ -49,11 +49,14 @@ function createConfig(directory, options) {
         "target": options.target,
         "module": "commonjs",
         lib: options.lib,
+        jsx: options.jsx,
         "noImplicitAny": options.noImplicitAny,
         "noImplicitThis": options.noImplicitThis,
         "strictNullChecks": options.strictNullChecks,
         "strictFunctionTypes": options.strictFunctionTypes,
-        "experimentalDecorators": !!options.experimentalDecorators,
+        "experimentalDecorators": options.experimentalDecorators,
+        "esModuleInterop": options.esModuleInterop,
+        "allowSyntheticDefaultImports": options.allowSyntheticDefaultImports,
         "types": [],
         "noEmit": true,
         "forceConsistentCasingInFileNames": true
@@ -64,10 +67,13 @@ function createConfig(directory, options) {
 
 sh.mkdir('mirror')
 sh.cd('mirror')
-const isTestFile = /.+DefinitelyTyped\/types\/([^/]+)\/(.+\.ts)$/
+const isTestFile = /.+DefinitelyTyped\/types\/([^/]+)\/(.+\.tsx?)$/
 const isTypeReference = /<reference types="([^"]+)" *\/>/g
+const isESImport = /import.+from ['"]([^'"]+)['"]/g
+const isImportRequire =  /import.+ = require\(['"]([^"]+)['"]\)/g
 for (const d of sh.ls("~/DefinitelyTyped/types")) {
-    if (d < 'activex-scripting') continue
+    // if (d < 'amap-js-api') continue
+    console.log(`==================================================== ${d} ================================`)
     sh.mkdir(d)
     sh.cd(d)
     const sourceTsconfig = JSON.parse(fs.readFileSync(`/home/nathansa/DefinitelyTyped/types/${d}/tsconfig.json`, 'utf8'))
@@ -82,13 +88,17 @@ for (const d of sh.ls("~/DefinitelyTyped/types")) {
             const target = testFileMatch[2]
 
             const testFile = fs.readFileSync(f, 'utf8')
-            // read each file and look for `<reference types='...'/> and `npm install @types/${...}`
-            for (const typeReference of testFile.matchAll(isTypeReference)) {
-                sh.exec(`npm install @types/${typeReference[1]}`)
+            // read each file and look for `<reference types='...'/>`, `import = require` and `import ... from`, then `npm install @types/${...}`
+            const imports = [
+                ...testFile.matchAll(isTypeReference),
+                ...testFile.matchAll(isImportRequire),
+                ...testFile.matchAll(isESImport)
+            ]
+            for (const i of imports.map(match => match[1]).filter(name => name !== d && sh.test('-d', `~/DefinitelyTyped/types/${name}`))) {
+                sh.exec(`npm install @types/${i}`)
             }
-
             sh.mkdir('-p', path.dirname(target))
-            if (testFile.indexOf('import') === -1) {
+            if (imports.length === 0) {
                 fs.writeFileSync(target, `/// <reference types="${d}"/>
 ` + testFile)
             }
@@ -106,8 +116,10 @@ for (const d of sh.ls("~/DefinitelyTyped/types")) {
             const line = +err[2]
             const offset = +err[3]
             const lines = fs.readFileSync(filename, 'utf8').split('\n')
-            if (lines[line].indexOf('$ExpectError') === -1 && lines[line - 1].indexOf('$ExpectError') === -1) {
-                console.log(`Did not find $ExpectError for ${filename}(${line},${offset})`)
+            if (lines[line - 1].indexOf('$ExpectError') === -1 && (line < 2 || lines[line - 2].indexOf('$ExpectError') === -1)) {
+                console.log(`    Did not find $ExpectError for ${filename}(${line},${offset}):`)
+                console.log(lines[line - 2])
+                console.log(lines[line - 1])
                 process.exit(1)
             }
         }
