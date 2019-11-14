@@ -67,7 +67,7 @@ function createConfig(directory, options) {
 
 const isTestFile = /.+DefinitelyTyped\/types\/([^/]+)\/(.+\.tsx?)$/
 const isTypeReference = /<reference types="([^"]+)" *\/>/g
-const isESImport = /import.+from ['"]([^'"]+?)['"]/g
+const isESImport = /import[^'"]+?['"]([^'"]+?)['"]/g
 const isImportRequire =  /import.+ = require\(['"]([^"]+?)['"]\)/g
 /**
  * @param {string} dir
@@ -86,7 +86,7 @@ function installDependencies(dir) {
                 ...testFile.matchAll(isTypeReference),
                 ...testFile.matchAll(isESImport),
                 ...testFile.matchAll(isImportRequire),
-            ].map(match => match[1])
+            ].map(match => mangleScopes(match[1]))
             console.log(file, imports)
             for (const i of imports.filter(name => sh.test('-d', `~/DefinitelyTyped/types/${name}`) && name.indexOf('/') < 2)) {
                 sh.exec(`npm install @types/${i}`)
@@ -104,6 +104,11 @@ function installDependencies(dir) {
     }
 }
 
+/** @param {string} name */
+function mangleScopes(name) {
+    return name[0] === '@' ? name.slice(1).replace('/', '__') : name
+}
+
 sh.mkdir('mirror')
 sh.cd('mirror')
 const skiplist = [
@@ -112,9 +117,11 @@ const skiplist = [
     'ansicolors', // no tests!!!!!!!
     'aos', // global file in DT compilation isn't there in a real one (probably same as adone)
     // need a lint rule that says if index.d.ts is a module then index.d.ts must be the ONLY d.ts in "files" in tsconfig
+    'auth0.widget', // depends on <reference types="auth0-js/v7" />, which needs to be rewritten to <reference types="auth0-js" /> to work
+    // not sure what the general solution is, but types="xxx/vN" should not be allowed
 ]
 for (const dir of sh.ls("~/DefinitelyTyped/types")) {
-    if (dir < 'arcgis-js-api') continue
+    if (dir < 'babel__template') continue
     console.log(`==================================================== ${dir} ================================`)
     sh.mkdir(dir)
     sh.cd(dir)
