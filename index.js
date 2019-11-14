@@ -65,6 +65,10 @@ function createConfig(directory, options) {
 ))
 }
 
+const isTestFile = /.+DefinitelyTyped\/types\/([^/]+)\/(.+\.tsx?)$/
+const isTypeReference = /<reference types="([^"]+)" *\/>/g
+const isESImport = /import.+from ['"]([^'"]+?)['"]/g
+const isImportRequire =  /import.+ = require\(['"]([^"]+?)['"]\)/g
 /**
  * @param {string} d
  * @returns {(f: string) => void}
@@ -80,8 +84,8 @@ function installDependencies(d) {
             // read each file and look for `<reference types='...'/>`, `import = require` and `import ... from`, then `npm install @types/${...}`
             const imports = [
                 ...testFile.matchAll(isTypeReference),
+                ...testFile.matchAll(isESImport),
                 ...testFile.matchAll(isImportRequire),
-                ...testFile.matchAll(isESImport)
             ]
             for (const i of imports.map(match => match[1]).filter(name => name !== d && sh.test('-d', `~/DefinitelyTyped/types/${name}`))) {
                 sh.exec(`npm install @types/${i}`)
@@ -100,12 +104,8 @@ function installDependencies(d) {
 
 sh.mkdir('mirror')
 sh.cd('mirror')
-const isTestFile = /.+DefinitelyTyped\/types\/([^/]+)\/(.+\.tsx?)$/
-const isTypeReference = /<reference types="([^"]+)" *\/>/g
-const isESImport = /import.+from ['"]([^'"]+)['"]/g
-const isImportRequire =  /import.+ = require\(['"]([^"]+)['"]\)/g
 for (const d of sh.ls("~/DefinitelyTyped/types")) {
-    if (d < 'amap-js-api') continue
+    if (d < 'angular') continue
     console.log(`==================================================== ${d} ================================`)
     sh.mkdir(d)
     sh.cd(d)
