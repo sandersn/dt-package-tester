@@ -65,23 +65,12 @@ function createConfig(directory, options) {
 ))
 }
 
-sh.mkdir('mirror')
-sh.cd('mirror')
-const isTestFile = /.+DefinitelyTyped\/types\/([^/]+)\/(.+\.tsx?)$/
-const isTypeReference = /<reference types="([^"]+)" *\/>/g
-const isESImport = /import.+from ['"]([^'"]+)['"]/g
-const isImportRequire =  /import.+ = require\(['"]([^"]+)['"]\)/g
-for (const d of sh.ls("~/DefinitelyTyped/types")) {
-    // if (d < 'amap-js-api') continue
-    console.log(`==================================================== ${d} ================================`)
-    sh.mkdir(d)
-    sh.cd(d)
-    const sourceTsconfig = JSON.parse(fs.readFileSync(`/home/nathansa/DefinitelyTyped/types/${d}/tsconfig.json`, 'utf8'))
-    assert.notStrictEqual(undefined, sourceTsconfig.compilerOptions)
-    assert.notStrictEqual(undefined, sourceTsconfig.compilerOptions.lib)
-    createConfig(d, sourceTsconfig.compilerOptions)
-    sh.exec(`npm install @types/${d}`)
-    for (const f of sh.find(`~/DefinitelyTyped/types/${d}`)) {
+/**
+ * @param {string} d
+ * @returns {(f: string) => void}
+ */
+function installDependencies(d) {
+    return f => {
         const testFileMatch = f.match(isTestFile)
         if (testFileMatch && !f.endsWith('.d.ts')) {
             assert.equal(testFileMatch[1], d)
@@ -107,6 +96,25 @@ for (const d of sh.ls("~/DefinitelyTyped/types")) {
             }
         }
     }
+}
+
+sh.mkdir('mirror')
+sh.cd('mirror')
+const isTestFile = /.+DefinitelyTyped\/types\/([^/]+)\/(.+\.tsx?)$/
+const isTypeReference = /<reference types="([^"]+)" *\/>/g
+const isESImport = /import.+from ['"]([^'"]+)['"]/g
+const isImportRequire =  /import.+ = require\(['"]([^"]+)['"]\)/g
+for (const d of sh.ls("~/DefinitelyTyped/types")) {
+    if (d < 'amap-js-api') continue
+    console.log(`==================================================== ${d} ================================`)
+    sh.mkdir(d)
+    sh.cd(d)
+    const sourceTsconfig = JSON.parse(fs.readFileSync(`/home/nathansa/DefinitelyTyped/types/${d}/tsconfig.json`, 'utf8'))
+    assert.notStrictEqual(undefined, sourceTsconfig.compilerOptions)
+    assert.notStrictEqual(undefined, sourceTsconfig.compilerOptions.lib)
+    createConfig(d, sourceTsconfig.compilerOptions)
+    sh.exec(`npm install @types/${d}`)
+    sh.find(`~/DefinitelyTyped/types/${d}`).forEach(installDependencies(d))
     const result = sh.exec('node ~/ts/built/local/tsc.js')
     // adone has errors as shipped
     if (result.code !== 0 && d !== 'adone') {
