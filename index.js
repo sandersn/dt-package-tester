@@ -118,26 +118,28 @@ sh.cd('mirror')
 // 2. no relative imports in tests, they are asking for trouble even if they could theoretically be correct
 // 3. lol @ the number of packages with no tests
 const skiplist = [
-    'adone', // inter-file UMD references fail, need to investigate
-    'ansi-styles', // local reference to .d.ts file in test, should be disallowed by linter (but it's unused, so skip for our purposes)
-    'ansicolors', // no tests!!!!!!! (and angular-cookies)
-    'aos', // global file in DT compilation isn't there in a real one (probably same as adone)
-    // need a lint rule that says if index.d.ts is a module then index.d.ts must be the ONLY d.ts in "files" in tsconfig
-    'auth0.widget', // depends on <reference types="auth0-js/v7" />, which needs to be rewritten to <reference types="auth0-js" /> to work
-    // not sure what the general solution is, but types="xxx/vN" should not be allowed
-    // babel__template uses relative paths in tests to refer to its package, this should be disallowed too
-    'chromecast-caf-sender', // we miss a dependency on @types/chrome that should arise from <reference types="chrome/chrome-cast" /> in types-publisher
-    'cldrjs', // same: reference to globals defined in a file outside index.d.ts.
-    'clearbladejs-client', // same
-    'clearbladejs-server', // same, clearblade types are just wrong
-    'codemirror', // same, unreferenced global d.ts
-    'config', // relative import in test
-    'crypto-js', // relative import in test
-    'cssbeautify', // relative import in test
-    'd3-cloud', // relative import in test
+    // 'adone', // inter-file UMD references fail, need to investigate
+    // 'ansi-styles', // local reference to .d.ts file in test, should be disallowed by linter (but it's unused, so skip for our purposes)
+    // 'ansicolors', // no tests!!!!!!! (and angular-cookies)
+    // 'aos', // global file in DT compilation isn't there in a real one (probably same as adone)
+    // // need a lint rule that says if index.d.ts is a module then index.d.ts must be the ONLY d.ts in "files" in tsconfig
+    // 'auth0.widget', // depends on <reference types="auth0-js/v7" />, which needs to be rewritten to <reference types="auth0-js" /> to work
+    // // not sure what the general solution is, but types="xxx/vN" should not be allowed
+    // // babel__template uses relative paths in tests to refer to its package, this should be disallowed too
+    // 'chromecast-caf-sender', // we miss a dependency on @types/chrome that should arise from <reference types="chrome/chrome-cast" /> in types-publisher
+    // 'cldrjs', // same: reference to globals defined in a file outside index.d.ts.
+    // 'clearbladejs-client', // same
+    // 'clearbladejs-server', // same, clearblade types are just wrong
+    // 'codemirror', // same, unreferenced global d.ts
+    // 'config', // relative import in test
+    // 'crypto-js', // relative import in test
+    // 'cssbeautify', // relative import in test
+    // 'd3-cloud', // relative import in test
 ]
+/** @type {string[]} */
+const log = []
 for (const dir of sh.ls("~/DefinitelyTyped/types")) {
-    if (dir < 'd3-cloud') continue
+    // if (dir < 'd3-cloud') continue
     console.log(`==================================================== ${dir} ================================`)
     sh.mkdir(dir)
     sh.cd(dir)
@@ -158,10 +160,14 @@ for (const dir of sh.ls("~/DefinitelyTyped/types")) {
                 console.log(`    Did not find $ExpectError for ${filename}(${line},${offset}):`)
                 console.log(lines[line - 2])
                 console.log(lines[line - 1])
+                log.push(`    Did not find $ExpectError for ${filename}(${line},${offset}):`)
+                log.push(lines[line - 2])
+                log.push(lines[line - 1])
                 sh.exec('play -q ~/Music/ogg/Undertale/mus_wawa.ogg -t alsa gain -13 trim 0 2.6 &')
-                process.exit(1)
             }
         }
     }
     sh.cd('..')
 }
+console.log('######## ERRORS #########')
+for (const line of log) console.log(line)
