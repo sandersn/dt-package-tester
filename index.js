@@ -94,8 +94,9 @@ function installDependencies(dir) {
             sh.mkdir('-p', path.dirname(target))
             if (imports.indexOf(dir) === -1) {
                 sh.exec(`npm install @types/${dir}`)
+                // TODO: References to ".." and "." should be forbidden in tests (and maybe ".." forbidden in types too)
                 fs.writeFileSync(target, `/// <reference types="${dir}"/>
-` + testFile.replace(/["']\.\.["']/g, '"' + dir + '"'))
+` + testFile.replace(/["']\.\.?["']/g, '"' + dir + '"'))
             }
             else {
                 sh.cp('-u', file, target)
@@ -113,6 +114,9 @@ function mangleScopes(name) {
 
 sh.mkdir('mirror')
 sh.cd('mirror')
+// 1. only d.ts allowed in tsconfig should be index.d.ts (exceptions for globals? maybe, but they would remain hard to use)
+// 2. no relative imports in tests, they are asking for trouble even if they could theoretically be correct
+// 3. lol @ the number of packages with no tests
 const skiplist = [
     'adone', // inter-file UMD references fail, need to investigate
     'ansi-styles', // local reference to .d.ts file in test, should be disallowed by linter (but it's unused, so skip for our purposes)
@@ -125,9 +129,15 @@ const skiplist = [
     'chromecast-caf-sender', // we miss a dependency on @types/chrome that should arise from <reference types="chrome/chrome-cast" /> in types-publisher
     'cldrjs', // same: reference to globals defined in a file outside index.d.ts.
     'clearbladejs-client', // same
+    'clearbladejs-server', // same, clearblade types are just wrong
+    'codemirror', // same, unreferenced global d.ts
+    'config', // relative import in test
+    'crypto-js', // relative import in test
+    'cssbeautify', // relative import in test
+    'd3-cloud', // relative import in test
 ]
 for (const dir of sh.ls("~/DefinitelyTyped/types")) {
-    if (dir < 'clearbladejs-client') continue
+    if (dir < 'd3-cloud') continue
     console.log(`==================================================== ${dir} ================================`)
     sh.mkdir(dir)
     sh.cd(dir)
