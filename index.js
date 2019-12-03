@@ -96,7 +96,7 @@ function installDependencies(dir) {
                 sh.exec(`npm install @types/${dir}`)
                 // TODO: References to ".." and "." should be forbidden in tests (and maybe ".." forbidden in types too)
                 fs.writeFileSync(target, `/// <reference types="${dir}"/>
-` + testFile.replace(/["']\.\.?["']/g, '"' + dir + '"'))
+` + testFile.replace(/(["'])\.\.?\1/g, '"' + dir + '"'))
             }
             else {
                 sh.cp('-u', file, target)
@@ -160,5 +160,5 @@ for (const dir of sh.ls("~/DefinitelyTyped/types")) {
         }
     }
     sh.cd('..')
-    fs.writeFileSync('results.json', JSON.stringify(results))
+    fs.writeFileSync('results.json', JSON.stringify(results, undefined, 4))
 }
