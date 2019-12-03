@@ -6,6 +6,11 @@
 const sh = require('shelljs')
 const fs = require('fs')
 
+/**
+ * @template T
+ * @param {T[]} l
+ * @param {function(T): boolean} pred
+ */
 function bifilter(l, pred) {
     const t = []
     const f = []

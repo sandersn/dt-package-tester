@@ -117,30 +117,18 @@ sh.cd('mirror')
 // 1. only d.ts allowed in tsconfig should be index.d.ts (exceptions for globals? maybe, but they would remain hard to use)
 // 2. no relative imports in tests, they are asking for trouble even if they could theoretically be correct
 // 3. lol @ the number of packages with no tests
+// TODO: Remember to re-install packages to get new version of types-publisher
 const skiplist = [
-    // 'adone', // inter-file UMD references fail, need to investigate
-    // 'ansi-styles', // local reference to .d.ts file in test, should be disallowed by linter (but it's unused, so skip for our purposes)
-    // 'ansicolors', // no tests!!!!!!! (and angular-cookies)
-    // 'aos', // global file in DT compilation isn't there in a real one (probably same as adone)
-    // // need a lint rule that says if index.d.ts is a module then index.d.ts must be the ONLY d.ts in "files" in tsconfig
-    // 'auth0.widget', // depends on <reference types="auth0-js/v7" />, which needs to be rewritten to <reference types="auth0-js" /> to work
-    // // not sure what the general solution is, but types="xxx/vN" should not be allowed
-    // // babel__template uses relative paths in tests to refer to its package, this should be disallowed too
     // 'chromecast-caf-sender', // we miss a dependency on @types/chrome that should arise from <reference types="chrome/chrome-cast" /> in types-publisher
-    // 'cldrjs', // same: reference to globals defined in a file outside index.d.ts.
-    // 'clearbladejs-client', // same
-    // 'clearbladejs-server', // same, clearblade types are just wrong
     // 'codemirror', // same, unreferenced global d.ts
-    // 'config', // relative import in test
-    // 'crypto-js', // relative import in test
-    // 'cssbeautify', // relative import in test
     // 'd3-cloud', // relative import in test
 ]
-/** @type {string[]} */
-const log = []
+/** @type {{ [s: string]: string[] }} */
+const results = JSON.parse(fs.readFileSync('results.json', 'utf8'))
 for (const dir of sh.ls("~/DefinitelyTyped/types")) {
-    // if (dir < 'd3-cloud') continue
     console.log(`==================================================== ${dir} ================================`)
+    if (results[dir]) continue
+    results[dir] = []
     sh.mkdir(dir)
     sh.cd(dir)
     const sourceTsconfig = JSON.parse(fs.readFileSync(`/home/nathansa/DefinitelyTyped/types/${dir}/tsconfig.json`, 'utf8'))
@@ -151,6 +139,7 @@ for (const dir of sh.ls("~/DefinitelyTyped/types")) {
     const result = sh.exec('node ~/ts/built/local/tsc.js')
     if (result.code !== 0 && skiplist.indexOf(dir) === -1) {
         const errors = result.stdout.matchAll(/(\S+\.ts)\((\d+),(\d+)\): error TS/g)
+        let newFailures = false
         for (const err of errors) {
             const filename = err[1]
             const line = +err[2]
@@ -160,14 +149,16 @@ for (const dir of sh.ls("~/DefinitelyTyped/types")) {
                 console.log(`    Did not find $ExpectError for ${filename}(${line},${offset}):`)
                 console.log(lines[line - 2])
                 console.log(lines[line - 1])
-                log.push(`    Did not find $ExpectError for ${filename}(${line},${offset}):`)
-                log.push(lines[line - 2])
-                log.push(lines[line - 1])
-                sh.exec('play -q ~/Music/ogg/Undertale/mus_wawa.ogg -t alsa gain -13 trim 0 2.6 &')
+                results[dir].push(`    Did not find $ExpectError for ${filename}(${line},${offset}):`)
+                results[dir].push(lines[line - 2])
+                results[dir].push(lines[line - 1])
+                newFailures = true
             }
+        }
+        if (newFailures) {
+            sh.exec('play -q ~/Music/ogg/Undertale/mus_wawa.ogg -t alsa gain -13 trim 0 2.6 &')
         }
     }
     sh.cd('..')
+    fs.writeFileSync('results.json', JSON.stringify(results))
 }
-console.log('######## ERRORS #########')
-for (const line of log) console.log(line)

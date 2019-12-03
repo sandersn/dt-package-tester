@@ -10,7 +10,7 @@ const fs = require('fs')
 const unused = fs.readFileSync('/home/nathansa/types-publisher/doubt2.txt', 'utf8').split('\n')
 var i = 0
 /** @type {string} */
-let current = undefined
+let current = "This is unpossible"
 let group = []
 for (const line of unused) {
     const packageName = getPackageName(line)
@@ -36,8 +36,8 @@ function getPackageName(line) {
 }
 
 /**
- * {string} packageName
- * {string[]} group
+ * @param {string} packageName
+ * @param {string[]} group
  */
 function writeGroup(packageName, group) {
     i++
