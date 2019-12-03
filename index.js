@@ -75,10 +75,10 @@ const isImportRequire =  /(?:^|\n)import.+ = require\(['"]([^"]+?)['"]\)/g
  */
 function installDependencies(dir) {
     return file => {
-        const testFileMatch = file.match(isTestFile)
+        const testFileMatch = file.match(isTestFile) // ~/DefinitelyTyped/types/(FOO)/(foo-test.ts)
         if (testFileMatch && !file.endsWith('.d.ts')) {
             assert.equal(testFileMatch[1], dir)
-            const target = testFileMatch[2]
+            const target = testFileMatch[2].replace(/^ts3\..\//, '')
 
             const testFile = fs.readFileSync(file, 'utf8')
             // read each file and look for `<reference types='...'/>`, `import = require` and `import ... from`, then `npm install @types/${...}`
@@ -96,7 +96,7 @@ function installDependencies(dir) {
                 sh.exec(`npm install @types/${dir}`)
                 // TODO: References to ".." and "." should be forbidden in tests (and maybe ".." forbidden in types too)
                 fs.writeFileSync(target, `/// <reference types="${dir}"/>
-` + testFile.replace(/(["'])\.\.?\1/g, '"' + dir + '"'))
+` + testFile.replace(/(["'])\.\.?\1/g, '"' + dir + '"').replace(/<reference types="(\.\.\/?)+/g, '<reference types="'))
             }
             else {
                 sh.cp('-u', file, target)
@@ -114,30 +114,26 @@ function mangleScopes(name) {
 
 sh.mkdir('mirror')
 sh.cd('mirror')
-// 1. only d.ts allowed in tsconfig should be index.d.ts (exceptions for globals? maybe, but they would remain hard to use)
-// 2. no relative imports in tests, they are asking for trouble even if they could theoretically be correct
-// 3. lol @ the number of packages with no tests
-// TODO: Remember to re-install packages to get new version of types-publisher
-const skiplist = [
-    // 'chromecast-caf-sender', // we miss a dependency on @types/chrome that should arise from <reference types="chrome/chrome-cast" /> in types-publisher
-    // 'codemirror', // same, unreferenced global d.ts
-    // 'd3-cloud', // relative import in test
-]
+// chromecast-caf-sender // missing dependency @types/chrome, from <reference>
+// d3-cloud (and dc) -- d3 in generated package.json is d3^3 (not sure why, but it's correct), but no warning for installing d3@5
+// egjs__axes -- missing dependency @types/egjs__component, from an import
 /** @type {{ [s: string]: string[] }} */
 const results = JSON.parse(fs.readFileSync('results.json', 'utf8'))
 for (const dir of sh.ls("~/DefinitelyTyped/types")) {
-    console.log(`==================================================== ${dir} ================================`)
     if (results[dir]) continue
     results[dir] = []
+    console.log(`==================================================== ${dir} ================================`)
     sh.mkdir(dir)
     sh.cd(dir)
     const sourceTsconfig = JSON.parse(fs.readFileSync(`/home/nathansa/DefinitelyTyped/types/${dir}/tsconfig.json`, 'utf8'))
     assert.notStrictEqual(undefined, sourceTsconfig.compilerOptions)
     assert.notStrictEqual(undefined, sourceTsconfig.compilerOptions.lib)
     createConfig(dir, sourceTsconfig.compilerOptions)
-    sh.find(`~/DefinitelyTyped/types/${dir}`).forEach(installDependencies(dir))
+    const typesVersions = sh.ls('-d', `~/DefinitelyTyped/types/${dir}/ts3.*`)
+    const source = typesVersions.length ? typesVersions[typesVersions.length - 1] : `~/DefinitelyTyped/types/${dir}`
+    sh.find(source).forEach(installDependencies(dir))
     const result = sh.exec('node ~/ts/built/local/tsc.js')
-    if (result.code !== 0 && skiplist.indexOf(dir) === -1) {
+    if (result.code !== 0) {
         const errors = result.stdout.matchAll(/(\S+\.ts)\((\d+),(\d+)\): error TS/g)
         let newFailures = false
         for (const err of errors) {
