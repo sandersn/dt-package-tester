@@ -71,9 +71,10 @@ const isESImport = /(?:^|\n)import[^'"]+?['"]([^'"]+?)['"]/g
 const isImportRequire =  /(?:^|\n)import.+ = require\(['"]([^"]+?)['"]\)/g
 /**
  * @param {string} dir
+ * @param {{ [s:string]: string[] }} paths
  * @returns {(f: string) => void}
  */
-function installDependencies(dir) {
+function installDependencies(dir, paths) {
     return file => {
         const testFileMatch = file.match(isTestFile) // ~/DefinitelyTyped/types/(FOO)/(foo-test.ts)
         if (testFileMatch && !file.endsWith('.d.ts')) {
@@ -86,10 +87,11 @@ function installDependencies(dir) {
                 ...testFile.matchAll(isTypeReference),
                 ...testFile.matchAll(isESImport),
                 ...testFile.matchAll(isImportRequire),
-            ].map(match => mangleScopes(match[1]))
+            ].map(remap(paths))
             console.log(file, imports)
-            for (const i of imports.filter(name => sh.test('-d', `~/DefinitelyTyped/types/${name}`) && name.indexOf('/') < 2)) {
-                sh.exec(`npm install @types/${i}`)
+            for (const i of imports.filter(i => sh.test('-d', `~/DefinitelyTyped/types/${i}`))) {
+                console.log(`npm install @types/${i.replace(/\/v(\d+)$/, '@\1')}`)
+                sh.exec(`npm install @types/${i.replace(/\/v(\d+)$/, '@$1')}`)
             }
             sh.mkdir('-p', path.dirname(target))
             if (imports.indexOf(dir) === -1) {
@@ -106,17 +108,21 @@ function installDependencies(dir) {
 }
 
 /**
- * @param {string} name
+ * @param {{ [s: string]: string[] }} paths
+ * @return {(match: RegExpMatchArray) => string}
  */
-function mangleScopes(name) {
-    return name[0] === '@' ? name.slice(1).replace('/', '__') : name
+function remap(paths) {
+    return match => paths && paths[match[1]] ? paths[match[1]][0] : match[1]
 }
 
 sh.mkdir('mirror')
 sh.cd('mirror')
 // chromecast-caf-sender // missing dependency @types/chrome, from <reference>
-// d3-cloud (and dc) -- d3 in generated package.json is d3^3 (not sure why, but it's correct), but no warning for installing d3@5
 // egjs__axes -- missing dependency @types/egjs__component, from an import
+
+// d3-cloud (and dc) -- d3 in generated package.json is d3^3 (not sure why, but it's correct), but no warning for installing d3@5
+// express-brute-mongo -- same as d3-cloud/dc
+//            types-publisher should really not be generating package.json dependencies with versions besides "*"!
 /** @type {{ [s: string]: string[] }} */
 const results = JSON.parse(fs.readFileSync('results.json', 'utf8'))
 for (const dir of sh.ls("~/DefinitelyTyped/types")) {
@@ -131,7 +137,7 @@ for (const dir of sh.ls("~/DefinitelyTyped/types")) {
     createConfig(dir, sourceTsconfig.compilerOptions)
     const typesVersions = sh.ls('-d', `~/DefinitelyTyped/types/${dir}/ts3.*`)
     const source = typesVersions.length ? typesVersions[typesVersions.length - 1] : `~/DefinitelyTyped/types/${dir}`
-    sh.find(source).forEach(installDependencies(dir))
+    sh.find(source).forEach(installDependencies(dir, sourceTsconfig.compilerOptions.paths))
     const result = sh.exec('node ~/ts/built/local/tsc.js')
     if (result.code !== 0) {
         const errors = result.stdout.matchAll(/(\S+\.ts)\((\d+),(\d+)\): error TS/g)
