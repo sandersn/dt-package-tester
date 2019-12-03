@@ -8,4 +8,8 @@
     "resolveJsonModule": true,
     "strict": true
   },
+  "exclude": [
+    "node_modules",
+    "mirror"
+  ]
 }
