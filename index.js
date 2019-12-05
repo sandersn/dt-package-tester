@@ -77,12 +77,12 @@ const isImportRequire =  /(?:^|\n)import.+ = require\(['"]([^"]+?)['"]\)/g
 function copyTestFiles(dir, paths) {
     return file => {
         const testFileMatch = file.match(isTestFile) // ~/DefinitelyTyped/types/(FOO)/(foo-test.ts)
-        if (testFileMatch && !file.endsWith('.d.ts')) {
+        if (testFileMatch && !file.endsWith('.d.ts') && file.indexOf('/node_modules/') === -1) {
             assert.equal(testFileMatch[1], dir)
             const target = testFileMatch[2].replace(/^ts3\..\//, '')
 
             const testFile = fs.readFileSync(file, 'utf8')
-            // read each file and look for `<reference types='...'/>`, `import = require` and `import ... from`, then `npm install @types/${...}`
+            // read each file and look for `<reference types='...'/>`, `import = require` and `import ... from`, then `npm install --ignore-scripts @types/${...}`
             const imports = [
                 ...testFile.matchAll(isTypeReference),
                 ...testFile.matchAll(isESImport),
@@ -122,9 +122,6 @@ sh.cd('mirror')
 
 // google-cloud__tasks -- missing transitive dependency @types/duplexify (from google-gax, who should know better), which works on DT because @types/duplexify is available
 //     I have NO idea how to detect this correctly. At least the error is clear...
-// d3-cloud (and dc) -- d3 in generated package.json is d3^3 (not sure why, but it's correct), but no warning for installing d3@5
-// express-brute-mongo -- same as d3-cloud/dc
-//            types-publisher should really not be generating package.json dependencies with versions besides "*"!
 
 /** @type {{ [s: string]: string[] }} */
 const results = JSON.parse(fs.readFileSync('results.json', 'utf8'))
@@ -141,7 +138,7 @@ for (const dir of sh.ls("~/DefinitelyTyped/types")) {
     const typesVersions = sh.ls('-d', `~/DefinitelyTyped/types/${dir}/ts3.*`)
     const source = typesVersions.length ? typesVersions[typesVersions.length - 1] : `~/DefinitelyTyped/types/${dir}`
     for (const i of new Set(sh.find(source).flatMap(copyTestFiles(dir, sourceTsconfig.compilerOptions.paths)))) {
-        sh.exec(`npm install @types/${i}`)
+        sh.exec(`npm install --ignore-scripts @types/${i}`)
     }
     const result = sh.exec('node ~/ts/built/local/tsc.js')
     if (result.code !== 0) {
