@@ -61,7 +61,7 @@ function createConfig(directory, options) {
             "noEmit": true,
             "forceConsistentCasingInFileNames": true
         },
-        exclude: ["v0", "v1","v2","v3","v4","v5","v6","v7","v8","v9","v1*","ts3*"]
+        exclude: ["v0*", "v1*","v2*","v3*","v4*","v5*","v6","v7","v8*","v9*","ts3*", "scripts"]
     }))
 }
 
@@ -77,7 +77,9 @@ const isImportRequire =  /(?:^|\n)import.+ = require\(['"]([^"]+?)['"]\)/g
 function copyTestFiles(dir, paths) {
     return file => {
         const testFileMatch = file.match(isTestFile) // ~/DefinitelyTyped/types/(FOO)/(foo-test.ts)
-        if (testFileMatch && !file.endsWith('.d.ts') && file.indexOf('/node_modules/') === -1) {
+        if (testFileMatch
+            && !file.endsWith('.d.ts')
+            && file.indexOf('/node_modules/') === -1) {
             assert.equal(testFileMatch[1], dir)
             const target = testFileMatch[2].replace(/^ts3\..\//, '')
 
@@ -117,11 +119,6 @@ function remap(paths) {
 
 sh.mkdir('mirror')
 sh.cd('mirror')
-// chromecast-caf-sender // missing dependency @types/chrome, from <reference>
-// egjs__axes -- missing dependency @types/egjs__component, from an import
-
-// google-cloud__tasks -- missing transitive dependency @types/duplexify (from google-gax, who should know better), which works on DT because @types/duplexify is available
-//     I have NO idea how to detect this correctly. At least the error is clear...
 
 /** @type {{ [s: string]: string[] }} */
 const results = JSON.parse(fs.readFileSync('results.json', 'utf8'))
@@ -131,12 +128,13 @@ for (const dir of sh.ls("~/DefinitelyTyped/types")) {
     console.log(`==================================================== ${dir} ================================`)
     sh.mkdir(dir)
     sh.cd(dir)
-    const sourceTsconfig = JSON.parse(fs.readFileSync(`/home/nathansa/DefinitelyTyped/types/${dir}/tsconfig.json`, 'utf8'))
+    const typesVersions = sh.ls('-d', `~/DefinitelyTyped/types/${dir}/ts3.*`)
+    const source = typesVersions.length ? typesVersions[typesVersions.length - 1] : `/home/nathansa/DefinitelyTyped/types/${dir}`
+    const sourceTsconfig = JSON.parse(fs.readFileSync(path.join(source, `tsconfig.json`), 'utf8'))
     assert.notStrictEqual(undefined, sourceTsconfig.compilerOptions)
     assert.notStrictEqual(undefined, sourceTsconfig.compilerOptions.lib)
     createConfig(dir, sourceTsconfig.compilerOptions)
-    const typesVersions = sh.ls('-d', `~/DefinitelyTyped/types/${dir}/ts3.*`)
-    const source = typesVersions.length ? typesVersions[typesVersions.length - 1] : `~/DefinitelyTyped/types/${dir}`
+
     for (const i of new Set(sh.find(source).flatMap(copyTestFiles(dir, sourceTsconfig.compilerOptions.paths)))) {
         sh.exec(`npm install --ignore-scripts @types/${i}`)
     }
