@@ -11,8 +11,8 @@ async function main() {
     for (const packageName in registry.entries) {
         for (const version of new Set(Object.values(registry.entries[packageName]))) {
             const pack = await getPackage("@types/" + packageName, version)
-            console.log(packageName, pack.dist.tarball)
             await downloadTar(packageName, pack.dist.tarball)
+            convertToGithub(packageName + "-" + version)
         }
     }
 }
@@ -33,9 +33,28 @@ function getPackage(name, version) {
  */
 async function downloadTar(packageName, url) {
     let filepath = path.join("npm-install", path.basename(url))
-    if (!fs.existsSync(filepath)) {
-        await wget(url, { output: filepath })
-        tar.extract({ sync: true, file: filepath })
-        sh.mv(packageName, path.join("npm-install", path.basename(url).slice(0, path.basename(url).length - 4)))
+    if (fs.existsSync(filepath)) return
+
+    console.log(packageName, url)
+    await wget(url, { output: filepath })
+    tar.extract({ sync: true, file: filepath })
+    sh.mv(packageName, filepath.slice(0, filepath.length - 4))
+}
+
+/** @param {string} fullname */
+function convertToGithub(fullname) {
+    if (fs.existsSync(path.join("github-publish", fullname))) return
+
+    sh.mkdir('-p', path.join("github-publish", fullname))
+    for (const file of sh.find(path.join("npm-install", fullname))) {
+        const newfile = file.replace("npm-install/", "github-publish/")
+        if (path.basename(file) === "package.json") {
+            let packageJSON = JSON.parse(fs.readFileSync(file, 'utf8'))
+            packageJSON.publishConfig = { registry: "https://npm.pkg.github.com/" }
+            packageJSON.name = packageJSON.name.replace("@types/", "@testtypepublishing/")
+            fs.writeFileSync(newfile, JSON.stringify(packageJSON, undefined, 4))
+        } else {
+            sh.cp(file, newfile)
+        }
     }
 }
