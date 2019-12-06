@@ -1,2 +1,5 @@
 node_modules/
 mirror/
+npm-install/
+github-install/
+github-publish/

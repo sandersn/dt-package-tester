@@ -1,15 +1,18 @@
 {
-  "compilerOptions": {
-    "allowJs": true,
-    "checkJs": true,
-    "noEmit": true,
-    "target": "esnext",
-    "module": "commonjs",
-    "resolveJsonModule": true,
-    "strict": true
-  },
-  "exclude": [
-    "node_modules",
-    "mirror"
-  ]
+    "compilerOptions": {
+        "allowJs": true,
+        "checkJs": true,
+        "noEmit": true,
+        "target": "esnext",
+        "module": "commonjs",
+        "resolveJsonModule": true,
+        "strict": true
+    },
+    "exclude": [
+        "node_modules",
+        "mirror",
+        "npm-install",
+        "github-install",
+        "github-publish"
+    ]
 }
