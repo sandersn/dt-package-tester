@@ -8,12 +8,15 @@ const npmApi = require('npm-api')
 const npm = new npmApi()
 
 async function main() {
+    let i = 0
     for (const packageName in registry.entries) {
+        if (!(i % 100)) console.log(packageName)
         for (const version of new Set(Object.values(registry.entries[packageName]))) {
-            const pack = await getPackage("@types/" + packageName, version)
+            const pack = await getPackage('@types/' + packageName, version)
             await downloadTar(packageName, pack.dist.tarball)
-            convertToGithub(packageName + "-" + version)
+            convertToGithub(packageName + '-' + version)
         }
+        i++
     }
 }
 main().catch(e => { console.log(e); process.exit(1) })
@@ -32,26 +35,46 @@ function getPackage(name, version) {
  * @param {string} url
  */
 async function downloadTar(packageName, url) {
-    let filepath = path.join("npm-install", path.basename(url))
-    if (fs.existsSync(filepath)) return
+    let tgzpath = path.join('npm-install', path.basename(url))
+    let dirpath = tgzpath.slice(0, tgzpath.length - 4)
+    if (fs.existsSync(dirpath)) return
 
     console.log(packageName, url)
-    await wget(url, { output: filepath })
-    tar.extract({ sync: true, file: filepath })
-    sh.mv(packageName, filepath.slice(0, filepath.length - 4))
+    await wget(url, { output: tgzpath })
+    tar.extract({ sync: true, file: tgzpath })
+    sh.mv(packageName, dirpath)
 }
 
-/** @param {string} fullname */
-function convertToGithub(fullname) {
-    if (fs.existsSync(path.join("github-publish", fullname))) return
+/**
+ * @param {object} o
+ * @param {(k: any) => any} f
+ */
+function mapKeys(o, f) {
+    /** @type {{ [s: string]: any }} */
+    const o2 = {}
+    for (const k in o) {
+        o2[f(k)] = o[k]
+    }
+    return o2
+}
 
-    sh.mkdir('-p', path.join("github-publish", fullname))
-    for (const file of sh.find(path.join("npm-install", fullname))) {
-        const newfile = file.replace("npm-install/", "github-publish/")
-        if (path.basename(file) === "package.json") {
+/** @param {string} packageName */
+function convertToGithub(packageName) {
+    // if (fs.existsSync(path.join('github-publish', fullname))) return
+
+    sh.mkdir('-p', path.join('github-publish', packageName))
+    for (const file of sh.find(path.join('npm-install', packageName))) {
+        const newfile = file.replace('npm-install/', 'github-publish/')
+        if (file === path.join('npm-install', packageName)) {
+            ; // skipped !
+        } else if (path.extname(file) === '' || /ts3\.\d$/.test(file)) {
+            sh.mkdir('-p', newfile)
+        } else if (path.basename(file) === 'package.json') {
+            /** @type {Tsconfig} */
             let packageJSON = JSON.parse(fs.readFileSync(file, 'utf8'))
-            packageJSON.publishConfig = { registry: "https://npm.pkg.github.com/" }
-            packageJSON.name = packageJSON.name.replace("@types/", "@testtypepublishing/")
+            packageJSON.publishConfig = { registry: 'https://npm.pkg.github.com/' }
+            packageJSON.name = packageJSON.name.replace('@types/', '@testtypepublishing/')
+            packageJSON.dependencies = mapKeys(packageJSON.dependencies, d => d.replace('@types/', '@testtypepublishing/'))
             fs.writeFileSync(newfile, JSON.stringify(packageJSON, undefined, 4))
         } else {
             sh.cp(file, newfile)

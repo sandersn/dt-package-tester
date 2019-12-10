@@ -26,6 +26,12 @@ Take the types-registry json, whatever it's named, and iterate through each pack
 Download the tgz of each unique version of the package from npm and unzip it into npm-install/package-1.2/
 Convert the downloaded output of npm to github-publishable code and copy to github-publish/package-1.2/.
 
+The conversion will need to
+1. add github package
+2. rename package scope to @testtypepublishing
+3. rename dependency package scope to @testtypepublishing
+It might also need to clean out some elements of package.json, but I haven't seen anything yet.
+
 Downloading the tgz should also work with github (to github-install/package/1.2).
 
 # publish-to-github
@@ -41,3 +47,5 @@ After this works well, merge it with convert-to-github.
 Iterate through each unique version of packages from types-registry.
 Diff the files and contents of each package in npm-install/ vs github-install/.
 They should be the same except for one or two diffs.
+
+Also, even before publishing to github, I should check that the number of files between the npm-install and github-publish are correct.
