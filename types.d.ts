@@ -2,6 +2,7 @@ type Tsconfig = {
     name: string,
     dependencies: { [s: string]: string },
     publishConfig?: { registry: string },
+    repository: { url: string },
 }
 declare module "download-file-sync" {
     function f(url: string): string;

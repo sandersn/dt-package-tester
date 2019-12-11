@@ -15,6 +15,7 @@ async function main() {
             const pack = await getPackage('@types/' + packageName, version)
             await downloadTar(packageName, pack.dist.tarball)
             convertToGithub(packageName + '-' + version)
+            publishToGithub(packageName + '-' + version)
         }
         i++
     }
@@ -60,7 +61,7 @@ function mapKeys(o, f) {
 
 /** @param {string} packageName */
 function convertToGithub(packageName) {
-    // if (fs.existsSync(path.join('github-publish', fullname))) return
+    // if (fs.existsSync(path.join('github-publish', packageName))) return
 
     sh.mkdir('-p', path.join('github-publish', packageName))
     for (const file of sh.find(path.join('npm-install', packageName))) {
@@ -75,9 +76,20 @@ function convertToGithub(packageName) {
             packageJSON.publishConfig = { registry: 'https://npm.pkg.github.com/' }
             packageJSON.name = packageJSON.name.replace('@types/', '@testtypepublishing/')
             packageJSON.dependencies = mapKeys(packageJSON.dependencies, d => d.replace('@types/', '@testtypepublishing/'))
+            packageJSON.repository.url = "https://github.com/TestTypePublishing/TypePublishing.git"
             fs.writeFileSync(newfile, JSON.stringify(packageJSON, undefined, 4))
         } else {
             sh.cp(file, newfile)
         }
     }
+}
+
+/**
+ * @param {string} packageName
+ * @return false if the package was already published */
+function publishToGithub(packageName) {
+    sh.cd(path.join('github-publish', packageName))
+    const res = sh.exec('npm publish')
+    sh.cd('../..')
+    return res.code === 0 || res.stderr.indexOf("EPUBLISHCONFLICT") === -1
 }
