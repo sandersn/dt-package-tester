@@ -4,46 +4,50 @@ const wget = require('node-wget-promise')
 const sh = require('shelljs')
 const fs = require('fs')
 const path = require('path')
-const npmApi = require('npm-api')
-const npm = new npmApi()
 
-async function main() {
+function main() {
     let i = 0
     for (const packageName in registry.entries) {
+        if (packageName !== 'akamai-edgeworkers') continue
         if (!(i % 100)) console.log(packageName)
         for (const version of new Set(Object.values(registry.entries[packageName]))) {
-            const pack = await getPackage('@types/' + packageName, version)
-            await downloadTar(packageName, pack.dist.tarball)
+            const url = getPackage('@types/' + packageName, version)
+            sh.cd('npm-install')
+            downloadTar(packageName, url.slice(0, url.length - 1), version)
+            sh.cd('..')
             convertToGithub(packageName + '-' + version)
             publishToGithub(packageName + '-' + version)
         }
+        sh.exec(`npm dist-tag add @types/${packageName}@${registry.entries[packageName].latest} latest --registry=https://npm.pkg.github.com`)
         i++
     }
 }
-main().catch(e => { console.log(e); process.exit(1) })
+main()
 
 /**
  * @param {string} name
  * @param {string} version
- * @return {Promise<import('npm-api').Package>}
+ * @return {string}
  */
 function getPackage(name, version) {
-    return new npm.Repo(name).package(version)
+    return sh.exec(`npm info ${name}@${version} dist.tarball`).stdout
 }
 
 /**
  * @param {string} packageName
  * @param {string} url
+ * @param {string} version
  */
-async function downloadTar(packageName, url) {
-    let tgzpath = path.join('npm-install', path.basename(url))
+function downloadTar(packageName, url, version) {
+    let tgzpath = path.basename(url)
     let dirpath = tgzpath.slice(0, tgzpath.length - 4)
     if (fs.existsSync(dirpath)) return
 
-    console.log(packageName, url)
-    await wget(url, { output: tgzpath })
-    tar.extract({ sync: true, file: tgzpath })
-    sh.mv(packageName, dirpath)
+    console.log(packageName, url, tgzpath)
+    sh.exec(`wget -O ${tgzpath} ${url}`)
+    sh.exec(`tar -xvf ${tgzpath}`)
+    sh.mv(packageName, packageName + '-' + version)
+    sh.mv('package', packageName + '-' + version)
 }
 
 /**
@@ -68,15 +72,13 @@ function convertToGithub(packageName) {
         const newfile = file.replace('npm-install/', 'github-publish/')
         if (file === path.join('npm-install', packageName)) {
             ; // skipped !
-        } else if (path.extname(file) === '' || /ts3\.\d$/.test(file)) {
+        } else if (path.extname(file) === '' && path.basename(file) !== 'LICENSE' || /ts3\.\d$/.test(file)) {
             sh.mkdir('-p', newfile)
         } else if (path.basename(file) === 'package.json') {
             /** @type {Tsconfig} */
             let packageJSON = JSON.parse(fs.readFileSync(file, 'utf8'))
             packageJSON.publishConfig = { registry: 'https://npm.pkg.github.com/' }
-            packageJSON.name = packageJSON.name.replace('@types/', '@testtypepublishing/')
-            packageJSON.dependencies = mapKeys(packageJSON.dependencies, d => d.replace('@types/', '@testtypepublishing/'))
-            packageJSON.repository.url = "https://github.com/TestTypePublishing/TypePublishing.git"
+            packageJSON.repository.url = "https://github.com/types/_definitelytypedmirror.git"
             fs.writeFileSync(newfile, JSON.stringify(packageJSON, undefined, 4))
         } else {
             sh.cp(file, newfile)
