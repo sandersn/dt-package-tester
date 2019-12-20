@@ -22,12 +22,13 @@
   },
   "homepage": "https://github.com/sandersn/dt-package-tester#readme",
   "dependencies": {
+    "@types/node-wget-promise": "^0.1.0",
     "@types/shelljs": "^0.8.6",
     "node-wget-promise": "^0.1.6",
     "npm-api": "^1.0.0",
     "shelljs": "^0.8.3",
     "tar": "^5.0.5",
-    "types-registry": "^0.1.468"
+    "types-registry": "^0.1.470"
   },
   "devDependencies": {
     "typescript": "^3.8.0-dev.20191112"

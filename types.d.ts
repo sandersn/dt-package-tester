@@ -8,10 +8,6 @@ declare module "download-file-sync" {
     function f(url: string): string;
     export = f;
 }
-declare module "node-wget-promise" {
-    function download(source: string, options: { verbose?: boolean, output?: string, onStart?: any, onProgress?: any}): Promise<void>;
-    export = download;
-}
 declare module "npm-api" {
     namespace NpmApi {
         interface Package {
@@ -54,7 +50,12 @@ declare module "tar" {
 }
 declare module "types-registry" {
     const json: {
-        entries: { [s: string]: { [s: string]: string } }
+        entries: {
+            [s: string]: {
+                latest: string
+                [s: string]: string
+            }
+        }
     }
     export = json
 }

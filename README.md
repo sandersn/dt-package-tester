@@ -34,18 +34,16 @@ It might also need to clean out some elements of package.json, but I haven't see
 
 Downloading the tgz should also work with github (to github-install/package/1.2).
 
-# publish-to-github
+## publish-to-github
 
 Iterate through each unique version of packages from types-registry.
 Publish each package to @testtypepublishing on github.
 (This is just `npm publish` on each directory in github-publisher.)
 
-After this works well, merge it with convert-to-github.
+Now that this works well, it's part of install-types-registry.
 
 # compare-npm-to-github
 
-Iterate through each unique version of packages from types-registry.
-Diff the files and contents of each package in npm-install/ vs github-install/.
-They should be the same except for one or two diffs.
-
-Also, even before publishing to github, I should check that the number of files between the npm-install and github-publish are correct.
+Just do this with `ls github-install/* >github-install.txt` (and for
+npm), then diffing.
+Then, do a directory diff of npm-install/ and github-install/.
