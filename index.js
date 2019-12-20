@@ -3,6 +3,11 @@ const path = require('path')
 const assert = require('assert')
 const fs = require('fs')
 /**
+ * -e : re-test all packages with errors
+ * -r : treat results.json as readonly -- do not update
+ */
+const args = new Set(process.argv.slice(2))
+/**
  * @param {string} directory
  * @param {object} options
  */
@@ -102,7 +107,7 @@ function copyTestFiles(dir, paths) {
                 sh.cp('-u', file, target)
             }
             return imports
-                .filter(i => sh.test('-d', `~/DefinitelyTyped/types/${i}`))
+                .filter(i => sh.test('-d', `~/DefinitelyTyped/types/${i}`) && !/\//.test(i))
                 .map(i => i.replace(/\/v(\d+)$/, '@$1'))
         }
         return []
@@ -123,7 +128,7 @@ sh.cd('mirror')
 /** @type {{ [s: string]: string[] }} */
 const results = JSON.parse(fs.readFileSync('results.json', 'utf8'))
 for (const dir of sh.ls("~/DefinitelyTyped/types")) {
-    if (results[dir]) continue
+    if (results[dir] && !(args.has('-e') && results[dir].length)) continue
     results[dir] = []
     console.log(`==================================================== ${dir} ================================`)
     sh.mkdir(dir)
@@ -135,8 +140,14 @@ for (const dir of sh.ls("~/DefinitelyTyped/types")) {
     assert.notStrictEqual(undefined, sourceTsconfig.compilerOptions.lib)
     createConfig(dir, sourceTsconfig.compilerOptions)
 
-    for (const i of new Set(sh.find(source).flatMap(copyTestFiles(dir, sourceTsconfig.compilerOptions.paths)))) {
-        sh.exec(`npm install --ignore-scripts @types/${i}`)
+    const imports = new Set(sh.find(source).flatMap(copyTestFiles(dir, sourceTsconfig.compilerOptions.paths)))
+    console.log(imports)
+    for (const i of imports) {
+        const ret = sh.exec(`npm install --ignore-scripts @types/${i} --registry=https://npm.pkg.github.com/types`)
+        if (ret.code) {
+            sh.exec('play -q ~/Music/ogg/Undertale/mus_wawa.ogg -t alsa gain -13 trim 0 2.6 &')
+            results[dir].push(ret.stderr)
+        }
     }
     const result = sh.exec('node ~/ts/built/local/tsc.js')
     if (result.code !== 0) {
@@ -162,5 +173,6 @@ for (const dir of sh.ls("~/DefinitelyTyped/types")) {
         }
     }
     sh.cd('..')
-    fs.writeFileSync('results.json', JSON.stringify(results, undefined, 4))
+    if (args.has('-r'))
+        fs.writeFileSync('results.json', JSON.stringify(results, undefined, 4))
 }
