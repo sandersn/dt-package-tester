@@ -143,6 +143,7 @@ for (const dir of sh.ls("~/DefinitelyTyped/types")) {
     const imports = new Set(sh.find(source).flatMap(copyTestFiles(dir, sourceTsconfig.compilerOptions.paths)))
     console.log(imports)
     for (const i of imports) {
+        console.log(`npm install --ignore-scripts @types/${i} --registry=https://npm.pkg.github.com/types`)
         const ret = sh.exec(`npm install --ignore-scripts @types/${i} --registry=https://npm.pkg.github.com/types`)
         if (ret.code) {
             sh.exec('play -q ~/Music/ogg/Undertale/mus_wawa.ogg -t alsa gain -13 trim 0 2.6 &')
@@ -173,6 +174,6 @@ for (const dir of sh.ls("~/DefinitelyTyped/types")) {
         }
     }
     sh.cd('..')
-    if (args.has('-r'))
+    if (!args.has('-r'))
         fs.writeFileSync('results.json', JSON.stringify(results, undefined, 4))
 }
